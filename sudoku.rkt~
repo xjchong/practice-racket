@@ -77,36 +77,8 @@
 ;;   produces true if there are no box conflicts, false otherwise.
 ;; box-safe?: Digit Posn Sudoku -> Bool
 (define (box-safe? digit posn sudoku)
-  (local [;; the only clever part about this code.
-          ;; gets the leftmost coord for the relevant box.
-          (define x (* 3 (quotient (posn-x posn) 3)))
-          (define y (* 3 (quotient (posn-y posn) 3)))
-
-          ;; (get-box) produces a list of the digits in the relevant box.
-          (define get-box
-            (local [;; (get-col grid) consumes a Sudoku and produces a box's
-                    ;;   column as a column of rows.
-                    ;; get-col: Sudoku -> (listof (listof Digit))
-                    (define (get-col grid)
-                      (cond [(= (length grid) (- 6 y)) empty]
-                            [(<= (length grid) (- 9 y))
-                             (append (get-row (first grid))
-                                     (get-col (rest grid)))]
-                            [else (get-col (rest grid))]))
-
-                    ;; (get-row row) consumes a row and produces the relevant
-                    ;;   digits in the row (of the box).
-                    ;; get-row: (listof Digit) -> (listof Digit)
-                    (define (get-row row)
-                      (cond [(= (length row) (- 6 x)) empty]
-                            [(<= (length row) (- 9 x))
-                             (cons (first row) (get-row (rest row)))]
-                            [else (get-row (rest row))]))]
-              (get-col sudoku)))
-          ]
-    (not (member? digit get-box))))
-
-                   
+  (local [(define (get-box 
 
           
 
+          
