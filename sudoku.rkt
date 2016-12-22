@@ -108,5 +108,136 @@
 
                    
 
-          
+;; Need to write a neighbours function that will give a list of possible states...
+;; A State is a (list Sudoku (listof Sudoku))
 
+;; A neighbours function first needs to find the first empty spot on the grid.
+;; Then go through all the digits, and find those that don't have a conflict.
+;; Then produce a list of Sudoku.
+
+
+;; (superimpose digit posn sudoku) consumes a Digit, Posn and imposes it at
+;;   that Posn on a Sudoku, producing a new Sudoku if possible, false if
+;;   the square is already occupied.
+;; superimpose: Digit Posn Sudoku -> Sudoku
+(define (superimpose digit posn sudoku)
+  (local [;; (build-by-row grid) consumes a Sudoku and builds a new
+          ;;   Sudoku row by row.
+          ;; build-by-row: Sudoku -> Sudoku
+          (define (build-by-row grid)
+            (cond [(= (posn-y posn)
+                      (- 9 (length grid)))
+                   (cons (build-by-nth (first grid))
+                         (rest grid))]
+                  [else (cons (first grid)
+                              (build-by-row (rest grid)))]))
+
+          ;; (build-by-nth row) consumes a row of Digit and produces
+          ;;   a new row with the digit superimposed at posn-x.
+          ;; bvuild-by-nth: (listof Digit) -> (listof Digit)
+          (define (build-by-nth row)
+            (cond [(= (posn-x posn)
+                      (- 9 (length row)))
+                   (cons digit (rest row))]
+                  [else (cons (first row)
+                              (build-by-nth (rest row)))]))
+          ]
+    (build-by-row sudoku)))
+
+
+;; (first-empty sudoku) consumes a Sudoku and produces the posn of the
+;;   first empty square, from left to right, top to down. Returns false
+;;   if there are no empty squares left.
+;; first-empty: Sudoku -> (anyof Posn Bool)
+(define (first-empty sudoku)
+  (local [;; (get-x row) consumes a row of Digit and produces the
+          ;;   x value of the first empty square, false if none.
+          ;; get-x: (listof Digit) -> (anyof Digit Bool)
+          (define (get-x row)
+            (cond [(empty? row) false]
+                  [(zero? (first row))
+                   (- 9 (length row))]
+                  [else (get-x (rest row))]))
+          
+          ;; (get-y grid) consumes a Sudoku and produces the y-value
+          ;;   of the first empty square if possible, false otherwise.
+          ;; get-y: Sudoku -> (anyof Posn Bool)
+          (define (get-y grid)
+            (cond [(empty? grid) false]
+                  [else
+                   (local [(define x (get-x (first grid)))]
+                     (cond [(false? x) (get-y (rest grid))]
+                           [else (make-posn x (- 9 (length grid)))]))]))]
+    (get-y sudoku)))
+
+
+;; (neighbours sudoku) consumes a Sudoku and produces a list of possible
+;;   next moves as a list of Sudoku. Possible next moves are considering
+;;   the first empty square only.
+;; neighbours: Sudoku -> (listof Sudoku)
+(define (neighbours sudoku)
+  (local [(define posn (first-empty sudoku))
+
+          ;; digit-safe? produces a function which consumes a Digit
+          ;;  and produces true if the Digit can be placed in the grid
+          ;;  safely, false otherwise.
+          ;; digit-safe?: -> (Digit -> Bool)
+          (define digit-safe?
+            (lambda (x) (and (row-safe? x posn sudoku)
+                             (col-safe? x posn sudoku)
+                             (box-safe? x posn sudoku))))
+          ]
+    (foldr (lambda (x y) (cons (superimpose x posn sudoku) y))
+           empty
+           (filter digit-safe? '(1 2 3 4 5 6 7 8 9)))))
+    
+
+
+;; (solve-puzzle sudoku) consumes a Sudoku and produces a solved Sudoku if
+;;   possible, false otherwise.
+;; solve-puzzle: Sudoku -> (anyof Sudoku Bool)
+(define (solve-puzzle sudoku)
+  (local [;; (find-route/node orig) consumes an origin Sudoku and produces a
+          ;;   route from the origin to a solved Sudoku if possible, else false.
+          ;; find-route/node: Sudoku -> (anyof (listof Sudoku) Bool)
+          (define (find-route/node orig)
+            (cond [(false? (first-empty orig)) orig]
+                  [else (find-route/list (neighbours orig))]))
+
+          ;; (find-route/list lo-node) consumes a list of nodes and produces
+          ;;   a route from orig to dest if possible, false otherwise.
+          ;; find-route/list: (listof Node) -> (anyof (listof Node) Bool)
+          (define (find-route/list lo-node)
+            (cond [(empty? lo-node) false]
+                  [else
+                   (local
+                     [(define route (find-route/node (first lo-node)))]
+                     (cond [(false? route) (find-route/list (rest lo-node))]
+                           [else route]))]))
+          ]
+    (find-route/node sudoku)))
+
+
+;; (convert str) consumes a string of exactly 81 digits, and produces a
+;;   Sudoku using those digits.
+;; convert: Str -> Sudoku
+(define (convert str)
+  (local [(define loc (string->list str))
+
+          (define lon
+            (map (lambda (x) (string->number
+                              (list->string (list x)))) loc))
+
+          (define (get-sudoku lon row-acc grid-acc)
+            (cond [(empty? lon)
+                   (reverse (cons (reverse row-acc) grid-acc))]
+                  [(= (length row-acc) 9)
+                   (get-sudoku (rest lon)
+                               empty
+                               (cons (reverse row-acc) grid-acc))]
+                  [else (get-sudoku
+                         (rest lon)
+                         (cons (first lon) row-acc)
+                         grid-acc)]))
+          ]
+    (get-sudoku lon empty empty)))
